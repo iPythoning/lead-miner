@@ -30,6 +30,8 @@ COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
     "industry": ("行业", "产品", "主营产品", "经营范围", "industry", "products", "category"),
     "booth": ("摊位号", "展位号", "展位", "booth", "stand"),
     "credit_code": ("统一社会信用代码", "信用代码", "credit_code", "uscc"),
+    # 备注列：进 trade-crm 的 notes（销售在 CRM 里第一眼看到的问题描述/跟进提示）。
+    "note": ("备注", "note"),
 }
 
 _NON_DIGIT = re.compile(r"\D")
@@ -55,6 +57,10 @@ class CompanyRecord:
     import_export: bool = False
     # category 进 tags 供筛选（销售按品类分工）；tags 是 trade-crm 唯一可筛的维度。
     category: str = ""
+    # 备注（如「来自 SSL 证书扫描：证书 29 天后到期」）→ 网关映射进 trade-crm 的 notes。
+    note: str = ""
+    # 信号源中文标签（import --signal-label），进 trade-crm tags 替代英文 slug。
+    signal_label: str = ""
     tags: list[str] = field(default_factory=list)
     # extra 收纳所有未建模的列。名录字段多且各源不同，逐个建模会没完没了，
     # 但**丢字段是不可逆的**（重导 2.6 万条代价极高），所以一律兜进 customFields。
@@ -81,6 +87,8 @@ class CompanyRecord:
             "import_export": self.import_export,
             "has_website": bool(self.website),
         }
+        if self.website:
+            meta["site_url"] = self.website
         if self.staff_size:
             meta["staff_size"] = self.staff_size
         for key in ("credit_code", "province", "industry"):
@@ -92,19 +100,26 @@ class CompanyRecord:
             meta["category"] = self.category
         if self.tags:
             meta["tags"] = self.tags
+        if self.signal_label:
+            meta["signal_label"] = self.signal_label
         if self.extra:
             meta["extra"] = self.extra
+
+        visitor = {
+            "company": self.company,
+            "name": self.contact,
+            "phone": self.phone,
+            "email": self.email,
+        }
+        if self.note:
+            # 网关把 visitor.message 映射成 trade-crm 的 notes —— 销售在 CRM 里第一眼看到。
+            visitor["message"] = self.note
 
         return {
             "request_id": self.request_id,
             "channel": "outbound_import",
             "occurred_at": f"{self.signal_date}T00:00:00Z" if len(self.signal_date) == 10 else self.signal_date,
-            "visitor": {
-                "company": self.company,
-                "name": self.contact,
-                "phone": self.phone,
-                "email": self.email,
-            },
+            "visitor": visitor,
             "meta": meta,
         }
 
@@ -304,6 +319,7 @@ def from_row(row: dict[str, str], source: str, signal_date: str) -> CompanyRecor
     booth = _pick(row, "booth")
     category = split_category(booth)
     province = _pick(row, "province")
+    note = _pick(row, "note")
 
     tags: list[str] = []
     extra: dict[str, str] = {}
@@ -353,6 +369,7 @@ def from_row(row: dict[str, str], source: str, signal_date: str) -> CompanyRecor
         credit_code=_pick(row, "credit_code"),
         staff_size=parse_staff_size(_pick(row, "staff_size")),
         category=category,
+        note=note,
         tags=sorted(set(t for t in tags if t)),
         extra=extra,
         raw=dict(row),
@@ -386,3 +403,4 @@ def _completeness(record: CompanyRecord) -> int:
         bool(getattr(record, f))
         for f in ("phone", "email", "website", "contact", "credit_code", "industry")
     )
+

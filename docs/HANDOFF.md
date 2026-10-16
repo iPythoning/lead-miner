@@ -7,6 +7,11 @@
 > 信号源为什么这么选、leads.paibao.ai 为什么这样落位、合规红线在哪。
 > 不读会把本仓当成「一个导数据的脚本」，从而在错误的地方优化。
 
+## 2026-10-14 · CRM 标签/备注中文化（miner 侧）
+
+- 改动：`records.py` 新增 note 列（别名 `备注`/`note`）→ `visitor.message`（网关映射进 CRM notes）；新增 `signal_label` 字段 → `meta.signal_label`；`cli.py` 新增 `--signal-label`（缺省回退 `--source` slug）。tests 全绿。
+- 密钥处理收紧：site key 只由网关侧授权进程注入调用，本仓不存 key、不读、不打印、不导出到本地环境。
+
 ## 2026-08-20 · 2GIS 采集器落地（FDE ABM 池,ADR-0001 D2 右半边）
 
 **已完成**:`miner/collectors/two_gis.py` + CLI `2gis-probe`/`2gis-fetch` + `tests/test_two_gis.py`
@@ -62,7 +67,7 @@ python3 tests/test_miner.py && python3 tests/test_meta_ads.py
 
 1. ~~部署网关~~ **✅ 2026-08-14 已完成**（`release.sh ebc12f7 deploy-gateway`），
    冒烟四项全 PASS，trade-crm 侧实查 `source=OUTBOUND` 落库。
-   outbound site key 由运维在网关侧保管 —— **本仓不存 key**，用时以 `OUTBOUND_SITE_KEY` 环境变量注入。
+   outbound site key is held only by operations; this repository never stores it. **Never read, print, or export it to a local environment**. An authorized gateway-side process injects it and calls `127.0.0.1:18090`, returning only batch counts and request_id results.
 2a. **Meta 广告库路线**（不依赖任何人给 CSV，可立即开始）：
    ```bash
    export META_ACCESS_TOKEN=...
@@ -72,14 +77,7 @@ python3 tests/test_miner.py && python3 tests/test_meta_ads.py
    产出是半成品（有公司名+域名，无电话）→ wigolo 补 contact 页的电话/邮箱两列 → import。
    详见 docs/sources.md。**probe 未通过前不要批量 fetch。**
 
-2b. **展会名录路线**：拿到广交会参展商名录 CSV 后
-   ```bash
-   ssh -N -L 18090:127.0.0.1:18090 aliyun          # 另开终端
-   export OUTBOUND_SITE_KEY=<上面取到的 key>
-   python3 -m miner import 名录.csv --source canton-fair-138 \
-       --signal-date <展会开幕日> --assume-import-export --limit 50 --dry-run
-   ```
-   去掉 `--dry-run` 真推，然后在 trade-crm dashboard `/leads` 按 `source=OUTBOUND` 查看。
+2b. **展会名录路线**：拿到广交会参展商名录 CSV 后，先在本仓运行 `python3 -m miner import 名录.csv --source canton-fair-138 --signal-date <展会开幕日> --assume-import-export --limit 50 --dry-run`；人工核对载荷后，由 aliyun 内部进程安全读取现有 site key 再发 batch。禁止把 key 导出到本机、shell history 或日志；结果只记录 created/duplicate/failed。
 3. **人工跟进 50 家**，测转化率与话术 —— 这一步的结论决定要不要做后续信号源
 4. 后续：ICP high band 自动转首触任务的阈值（用户已确认要，但等第 3 步数据）
 
@@ -126,3 +124,4 @@ trade-crm 的 `normalizePhone` 是印度 fork 残留：`0` 开头会被加 `91`
 | 日期 | 操作者 | 摘要 |
 |---|---|---|
 | 2026-08-14 | Claude | 建仓 + P0 采集链路；网关 lane 3 已上线验证；Meta 广告库 collector |
+
