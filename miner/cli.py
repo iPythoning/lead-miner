@@ -30,6 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
     imp.add_argument("csv", type=Path, metavar="FILE", help="名录文件（.csv 或 .xlsx）")
     imp.add_argument("--source", required=True, help="信号源标识，如 canton-fair-135")
     imp.add_argument("--signal-date", required=True, help="信号日期 YYYY-MM-DD（展会开幕日/名录发布日）")
+    imp.add_argument("--signal-label", default="",
+                     help="信号源的中文标签，进 trade-crm tags（如 SSL证书扫描 / 广交会139届）；缺省回退 --source 原文")
     imp.add_argument("--limit", type=int, default=0, help="只处理前 N 条（试水用）")
     imp.add_argument("--category", default="",
                      help="按品类筛选，逗号分隔（匹配展位号里的品类段，如 五金,工具）。"
@@ -236,6 +238,11 @@ def cmd_import(args: argparse.Namespace) -> int:
         records = records[: args.limit]
         print(f"--limit 截取前 {len(records)} 家")
 
+    if args.signal_label:
+        for record in records:
+            record.signal_label = args.signal_label
+        print(f"信号标签: {args.signal_label}")
+
     if args.assume_import_export:
         for record in records:
             record.import_export = True
@@ -312,3 +319,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

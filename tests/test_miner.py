@@ -100,16 +100,20 @@ def test_to_ingest_item_shape():
         company="宁波某某进出口有限公司", source="canton-fair-135", signal_date="2026-04-15",
         phone="057412345678", email="sales@example.com", website="http://example.com",
         credit_code="91330200MA2XXXX", staff_size=80, import_export=True, province="浙江",
+        note="来自 SSL 证书扫描：证书 29 天后到期", signal_label="SSL证书扫描",
     )
     item = record.to_ingest_item()
     assert item["request_id"] == "canton-fair-135-91330200MA2XXXX"
     assert item["visitor"]["phone"] == "057412345678"
+    assert item["visitor"]["message"] == "来自 SSL 证书扫描：证书 29 天后到期"
     assert item["occurred_at"] == "2026-04-15T00:00:00Z"
     meta = item["meta"]
     assert meta["import_export"] is True
     assert meta["has_website"] is True
+    assert meta["site_url"] == "http://example.com"
     assert meta["staff_size"] == 80
     assert meta["signal_source"] == "canton-fair-135"
+    assert meta["signal_label"] == "SSL证书扫描"
 
 
 def test_has_import_export():
@@ -192,3 +196,4 @@ if __name__ == "__main__":
                 print(f"FAIL  {name}: {exc}")
     print(f"\n{'FAILED' if failures else 'ALL PASSED'} ({failures} failed)")
     raise SystemExit(1 if failures else 0)
+

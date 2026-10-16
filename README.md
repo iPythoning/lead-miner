@@ -5,6 +5,8 @@
 
 零第三方依赖，只用 Python 标准库。
 
+> **事实源**：私有仓 `iPythoning/paibao-lead-miner`；本仓为定期脱敏发布，改动以私有仓为准。
+
 ## 为什么
 
 选源标准、产品落位与合规红线见 [`docs/adr/0001-lead-engine-strategy.md`](docs/adr/0001-lead-engine-strategy.md)。
